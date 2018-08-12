@@ -1,5 +1,6 @@
 package com.example.shivang.drawar;
 
+import android.content.Intent;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.opengl.Matrix;
@@ -11,6 +12,7 @@ import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
+import android.view.WindowManager;
 import android.widget.Toast;
 
 import com.example.shivang.drawar.Permissions.PermissionHelper;
@@ -72,12 +74,20 @@ public class DrawAR extends AppCompatActivity implements GLSurfaceView.Renderer,
     private AtomicBoolean bLineParameters = new AtomicBoolean(false);
     private float mLineWidthMax = 0.33f;
     private float mDistanceScale = 0.0f;
+    private float mLineSmoothing = 0.1f;
+
+    private BiquadFilter biquadFilter;
+
 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                WindowManager.LayoutParams.FLAG_FULLSCREEN);
         setContentView(R.layout.activity_draw_ar);
+
+        getSupportActionBar().hide();
 
 //        if (!PermissionHelper.hasCameraPermission(this)) {
 //            Log.v("TAG","AAYA");
@@ -360,22 +370,22 @@ public class DrawAR extends AppCompatActivity implements GLSurfaceView.Renderer,
     }
 
     private void addStroke(Vector3f newPoint) {
-//        biquadFilter = new BiquadFilter(mLineSmoothing);
-//        for (int i = 0; i < 1500; i++) {
-//            biquadFilter.update(newPoint);
-//        }
-//        Vector3f p = biquadFilter.update(newPoint);
-//        mLastPoint = new Vector3f(p);
-        mLastPoint = newPoint;
+        biquadFilter = new BiquadFilter(mLineSmoothing);
+        for (int i = 0; i < 1500; i++) {
+            biquadFilter.update(newPoint);
+        }
+        Vector3f p = biquadFilter.update(newPoint);
+        mLastPoint = new Vector3f(p);
+//        mLastPoint = newPoint;
         mStrokes.add(new ArrayList<Vector3f>());
         mStrokes.get(mStrokes.size() - 1).add(mLastPoint);
     }
 
     private void addPoint(Vector3f newPoint) {
         if (LineUtils.distanceCheck(newPoint, mLastPoint)) {
-//            Vector3f p = biquadFilter.update(newPoint);
-//            mLastPoint = new Vector3f(p);
-            mLastPoint = newPoint;
+            Vector3f p = biquadFilter.update(newPoint);
+            mLastPoint = new Vector3f(p);
+//            mLastPoint = newPoint;
             mStrokes.get(mStrokes.size() - 1).add(mLastPoint);
         }
     }
@@ -469,6 +479,15 @@ public class DrawAR extends AppCompatActivity implements GLSurfaceView.Renderer,
 
     @Override
     public void onLongPress(MotionEvent e) {
+
+    }
+
+    @Override
+    public void onBackPressed() {
+        Intent a = new Intent(Intent.ACTION_MAIN);
+        a.addCategory(Intent.CATEGORY_HOME);
+        a.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        startActivity(a);
 
     }
 

@@ -10,13 +10,13 @@ public class BiquadFilter {
 
     private BiquadFilterInstance[] inst = new BiquadFilterInstance[3];
 
-    BiquadFilter(double Fc){
+    public BiquadFilter(double Fc){
         for(int i=0;i<3;i++){
             inst[i] = new BiquadFilterInstance(Fc);
         }
     }
 
-    Vector3f update(Vector3f in){
+    public Vector3f update(Vector3f in){
         val.x = (float) inst[0].process(in.x);
         val.y = (float) inst[1].process(in.y);
         val.z = (float) inst[2].process(in.z);
