@@ -2,15 +2,23 @@ package com.example.shivang.drawar;
 
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
+import android.opengl.Matrix;
 import android.support.annotation.NonNull;
+import android.support.v4.view.GestureDetectorCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.DisplayMetrics;
 import android.util.Log;
+import android.view.GestureDetector;
+import android.view.MotionEvent;
 import android.widget.Toast;
 
 import com.example.shivang.drawar.Permissions.PermissionHelper;
 import com.example.shivang.drawar.Rendering.BackgroundRenderer;
+import com.example.shivang.drawar.Rendering.BiquadFilter;
+import com.example.shivang.drawar.Rendering.LineShaderRenderer;
+import com.example.shivang.drawar.Rendering.LineUtils;
+import com.example.shivang.drawar.Settings.AppSettings;
 import com.google.ar.core.ArCoreApk;
 import com.google.ar.core.Camera;
 import com.google.ar.core.Config;
@@ -23,12 +31,17 @@ import com.google.ar.core.exceptions.UnavailableArcoreNotInstalledException;
 import com.google.ar.core.exceptions.UnavailableSdkTooOldException;
 import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationException;
 
+import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
+import javax.vecmath.Vector2f;
+import javax.vecmath.Vector3f;
 
-public class DrawAR extends AppCompatActivity implements GLSurfaceView.Renderer {
+public class DrawAR extends AppCompatActivity implements GLSurfaceView.Renderer, GestureDetector.OnGestureListener,
+        GestureDetector.OnDoubleTapListener {
 
     String TAG = DrawAR.class.getSimpleName();
     GLSurfaceView mSurfaceView;
@@ -42,6 +55,24 @@ public class DrawAR extends AppCompatActivity implements GLSurfaceView.Renderer 
     Frame mFrame;
     AtomicBoolean bIsTracking = new AtomicBoolean(true);
     TrackingState mState;
+    private float[] mZeroMatrix = new float[16];
+    private Vector3f mLastPoint;
+    private GestureDetectorCompat mDetector;
+    private ArrayList<ArrayList<Vector3f>> mStrokes;
+    private float[] projmtx = new float[16];
+    private float[] viewmtx = new float[16];
+    private LineShaderRenderer mLineShaderRenderer = new LineShaderRenderer();
+    private AtomicBoolean bTouchDown = new AtomicBoolean(false);
+    private float[] mLastFramePosition;
+    private AtomicBoolean bNewStroke = new AtomicBoolean(false);
+    private AtomicReference<Vector2f> lastTouch = new AtomicReference<>();
+    private AtomicBoolean bReCenterView = new AtomicBoolean(false);
+    private AtomicBoolean bClearDrawing = new AtomicBoolean(false);
+    private AtomicBoolean bUndo = new AtomicBoolean(false);
+    private AtomicBoolean bLineParameters = new AtomicBoolean(false);
+    private float mLineWidthMax = 0.33f;
+    private float mDistanceScale = 0.0f;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,6 +88,9 @@ public class DrawAR extends AppCompatActivity implements GLSurfaceView.Renderer 
         mSurfaceView = findViewById(R.id.surfaceview);
 
         mDisplayRotationHelper = new DisplayRotationHelper(this);
+        Matrix.setIdentityM(mZeroMatrix, 0);
+
+        mLastPoint = new Vector3f(0, 0, 0);
         bInstallRequested = false;
 
         // Set up renderer.
@@ -65,6 +99,12 @@ public class DrawAR extends AppCompatActivity implements GLSurfaceView.Renderer 
         mSurfaceView.setEGLConfigChooser(8, 8, 8, 8, 16, 0); // Alpha used for plane blending.
         mSurfaceView.setRenderer(this);
         mSurfaceView.setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);
+
+        // Setup touch detector
+        mDetector = new GestureDetectorCompat(this, this);
+        mDetector.setOnDoubleTapListener(this);
+        mStrokes = new ArrayList<>();
+
     }
 
     @Override
@@ -166,7 +206,7 @@ public class DrawAR extends AppCompatActivity implements GLSurfaceView.Renderer 
         try {
 
             mSession.setCameraTextureName(mBackgroundRenderer.getTextureId());
-//            mLineShaderRenderer.createOnGlThread(this);
+            mLineShaderRenderer.createOnGlThread(this);
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -199,20 +239,12 @@ public class DrawAR extends AppCompatActivity implements GLSurfaceView.Renderer 
         mBackgroundRenderer.draw(mFrame);
 
         // Draw Lines
-//        if (mFrame.getCamera().getTrackingState() == TrackingState.TRACKING) {
-//            mLineShaderRenderer.draw(viewmtx, projmtx, mScreenWidth, mScreenHeight, AppSettings.getNearClip(), AppSettings.getFarClip());
-//        }
+        if (mFrame.getCamera().getTrackingState() == TrackingState.TRACKING) {
+            mLineShaderRenderer.draw(viewmtx, projmtx, mScreenWidth, mScreenHeight, AppSettings.getNearClip(), AppSettings.getFarClip());
+        }
     }
 
-    /**
-     * update() is executed on the GL Thread.
-     * The method handles all operations that need to take place before drawing to the screen.
-     * The method :
-     * extracts the current projection matrix and view matrix from the AR Pose
-     * handles adding stroke and points to the data collections
-     * updates the ZeroMatrix and performs the matrix multiplication needed to re-center the drawing
-     * updates the Line Renderer with the current strokes, color, distance scale, line width etc
-     */
+
     private void update() {
 
         if (mSession == null) {
@@ -235,7 +267,68 @@ public class DrawAR extends AppCompatActivity implements GLSurfaceView.Renderer 
                 bIsTracking.set(true);
             } else if (mState == TrackingState.STOPPED && bIsTracking.get()) {
                 bIsTracking.set(false);
-//                bTouchDown.set(false);
+                bTouchDown.set(false);
+            }
+
+            // Get projection matrix.
+            camera.getProjectionMatrix(projmtx, 0, AppSettings.getNearClip(), AppSettings.getFarClip());
+            camera.getViewMatrix(viewmtx, 0);
+
+            float[] position = new float[3];
+            camera.getPose().getTranslation(position, 0);
+
+            // Check if camera has moved much, if that's the case, stop touchDown events
+            // (stop drawing lines abruptly through the air)
+            if (mLastFramePosition != null) {
+                Vector3f distance = new Vector3f(position[0], position[1], position[2]);
+                distance.sub(new Vector3f(mLastFramePosition[0], mLastFramePosition[1], mLastFramePosition[2]));
+
+                if (distance.length() > 0.15) {
+                    bTouchDown.set(false);
+                }
+            }
+            mLastFramePosition = position;
+
+            // Multiply the zero matrix
+            Matrix.multiplyMM(viewmtx, 0, viewmtx, 0, mZeroMatrix, 0);
+
+
+            if (bNewStroke.get()) {
+                bNewStroke.set(false);
+                addStroke(lastTouch.get());
+                mLineShaderRenderer.bNeedsUpdate.set(true);
+            } else if (bTouchDown.get()) {
+                addPoint(lastTouch.get());
+                mLineShaderRenderer.bNeedsUpdate.set(true);
+            }
+
+            if (bReCenterView.get()) {
+                bReCenterView.set(false);
+                mZeroMatrix = getCalibrationMatrix();
+            }
+
+            if (bClearDrawing.get()) {
+                bClearDrawing.set(false);
+                clearDrawing();
+                mLineShaderRenderer.bNeedsUpdate.set(true);
+            }
+
+            if (bUndo.get()) {
+                bUndo.set(false);
+                if (mStrokes.size() > 0) {
+                    mStrokes.remove(mStrokes.size() - 1);
+                    mLineShaderRenderer.bNeedsUpdate.set(true);
+                }
+            }
+            mLineShaderRenderer.setDrawDebug(bLineParameters.get());
+            if (mLineShaderRenderer.bNeedsUpdate.get()) {
+                mLineShaderRenderer.setColor(AppSettings.getColor());
+                mLineShaderRenderer.mDrawDistance = AppSettings.getStrokeDrawDistance();
+                mLineShaderRenderer.setDistanceScale(mDistanceScale);
+                mLineShaderRenderer.setLineWidth(mLineWidthMax);
+                mLineShaderRenderer.clear();
+                mLineShaderRenderer.updateStrokes(mStrokes);
+                mLineShaderRenderer.upload();
             }
 
 
@@ -254,5 +347,133 @@ public class DrawAR extends AppCompatActivity implements GLSurfaceView.Renderer 
 //            finish();
         }
 
+    }
+
+    private void addStroke(Vector2f touchPoint) {
+        Vector3f newPoint = LineUtils.GetWorldCoords(touchPoint, mScreenWidth, mScreenHeight, projmtx, viewmtx);
+        addStroke(newPoint);
+    }
+
+    private void addPoint(Vector2f touchPoint) {
+        Vector3f newPoint = LineUtils.GetWorldCoords(touchPoint, mScreenWidth, mScreenHeight, projmtx, viewmtx);
+        addPoint(newPoint);
+    }
+
+    private void addStroke(Vector3f newPoint) {
+//        biquadFilter = new BiquadFilter(mLineSmoothing);
+//        for (int i = 0; i < 1500; i++) {
+//            biquadFilter.update(newPoint);
+//        }
+//        Vector3f p = biquadFilter.update(newPoint);
+//        mLastPoint = new Vector3f(p);
+        mLastPoint = newPoint;
+        mStrokes.add(new ArrayList<Vector3f>());
+        mStrokes.get(mStrokes.size() - 1).add(mLastPoint);
+    }
+
+    private void addPoint(Vector3f newPoint) {
+        if (LineUtils.distanceCheck(newPoint, mLastPoint)) {
+//            Vector3f p = biquadFilter.update(newPoint);
+//            mLastPoint = new Vector3f(p);
+            mLastPoint = newPoint;
+            mStrokes.get(mStrokes.size() - 1).add(mLastPoint);
+        }
+    }
+
+    /**
+     * Get a matrix usable for zero calibration (only position and compass direction)
+     */
+    public float[] getCalibrationMatrix() {
+        float[] t = new float[3];
+        float[] m = new float[16];
+
+        mFrame.getCamera().getPose().getTranslation(t, 0);
+        float[] z = mFrame.getCamera().getPose().getZAxis();
+        Vector3f zAxis = new Vector3f(z[0], z[1], z[2]);
+        zAxis.y = 0;
+        zAxis.normalize();
+
+        double rotate = Math.atan2(zAxis.x, zAxis.z);
+
+        Matrix.setIdentityM(m, 0);
+        Matrix.translateM(m, 0, t[0], t[1], t[2]);
+        Matrix.rotateM(m, 0, (float) Math.toDegrees(rotate), 0, 1, 0);
+        return m;
+    }
+
+    /**
+     * Clears the Datacollection of Strokes and sets the Line Renderer to clear and update itself
+     * Designed to be executed on the GL Thread
+     */
+    public void clearDrawing() {
+        mStrokes.clear();
+        mLineShaderRenderer.clear();
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent tap) {
+        this.mDetector.onTouchEvent(tap);
+
+        if (tap.getAction() == MotionEvent.ACTION_DOWN ) {
+            lastTouch.set(new Vector2f(tap.getX(), tap.getY()));
+            bTouchDown.set(true);
+            bNewStroke.set(true);
+            return true;
+        } else if (tap.getAction() == MotionEvent.ACTION_MOVE || tap.getAction() == MotionEvent.ACTION_POINTER_DOWN) {
+            lastTouch.set(new Vector2f(tap.getX(), tap.getY()));
+            bTouchDown.set(true);
+            return true;
+        } else if (tap.getAction() == MotionEvent.ACTION_UP || tap.getAction() == MotionEvent.ACTION_CANCEL) {
+            bTouchDown.set(false);
+            lastTouch.set(new Vector2f(tap.getX(), tap.getY()));
+            return true;
+        }
+
+        return super.onTouchEvent(tap);
+    }
+
+    @Override
+    public boolean onSingleTapConfirmed(MotionEvent e) {
+        return false;
+    }
+
+    @Override
+    public boolean onDoubleTap(MotionEvent e) {
+        return false;
+    }
+
+    @Override
+    public boolean onDoubleTapEvent(MotionEvent e) {
+        return false;
+    }
+
+    @Override
+    public boolean onDown(MotionEvent e) {
+        return false;
+    }
+
+    @Override
+    public void onShowPress(MotionEvent e) {
+
+    }
+
+    @Override
+    public boolean onSingleTapUp(MotionEvent e) {
+        return false;
+    }
+
+    @Override
+    public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+        return false;
+    }
+
+    @Override
+    public void onLongPress(MotionEvent e) {
+
+    }
+
+    @Override
+    public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+        return false;
     }
 }
