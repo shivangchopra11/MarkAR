@@ -1,6 +1,9 @@
 package com.example.shivang.drawar;
 
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.content.Intent;
+import android.graphics.Color;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.opengl.Matrix;
@@ -9,11 +12,14 @@ import android.support.v4.content.ContextCompat;
 import android.support.v4.view.GestureDetectorCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.text.Html;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
+import android.view.View;
 import android.view.WindowManager;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.Toast;
 
@@ -116,11 +122,54 @@ public class DrawAR extends AppCompatActivity implements GLSurfaceView.Renderer,
         itemIcon2.setColorFilter(ContextCompat.getColor(this, R.color.green), android.graphics.PorterDuff.Mode.MULTIPLY);
         itemIcon2.setImageDrawable(getDrawable(R.drawable.baseline_undo_white_24dp));
         SubActionButton button2 = itemBuilder.setContentView(itemIcon2).build();
+        button2.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                bUndo.set(true);
+            }
+        });
 
         ImageView itemIcon3 = new ImageView(this);
         itemIcon3.setColorFilter(ContextCompat.getColor(this, R.color.green), android.graphics.PorterDuff.Mode.MULTIPLY);
         itemIcon3.setImageDrawable(getDrawable(R.drawable.baseline_delete_white_24dp));
         SubActionButton button3 = itemBuilder.setContentView(itemIcon3).build();
+        button3.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                AlertDialog.Builder builder = new AlertDialog.Builder(DrawAR.this)
+                        .setMessage(Html.fromHtml("<font color='#00B551'>Sure you want to clear?</font>"));
+
+                // Set up the buttons
+                builder.setPositiveButton("Clear ", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        bClearDrawing.set(true);
+                    }
+                });
+                builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        dialog.cancel();
+                    }
+                });
+
+//                builder.show();
+                AlertDialog alert = builder.create();
+                alert.show();
+                alert.getWindow().setBackgroundDrawableResource(R.color.black);
+
+                Button nbutton = alert.getButton(DialogInterface.BUTTON_NEGATIVE);
+                //Set negative button background
+                nbutton.setBackgroundColor(getColor(R.color.black));
+                //Set negative button text color
+                nbutton.setTextColor(getColor(R.color.green));
+                Button pbutton = alert.getButton(DialogInterface.BUTTON_POSITIVE);
+                //Set positive button background
+                pbutton.setBackgroundColor(getColor(R.color.black));
+                //Set positive button text color
+                pbutton.setTextColor(getColor(R.color.green));
+            }
+        });
 
         ImageView itemIcon4 = new ImageView(this);
         itemIcon4.setColorFilter(ContextCompat.getColor(this, R.color.green), android.graphics.PorterDuff.Mode.MULTIPLY);
@@ -166,6 +215,7 @@ public class DrawAR extends AppCompatActivity implements GLSurfaceView.Renderer,
         mStrokes = new ArrayList<>();
 
     }
+
 
     @Override
     protected void onResume() {
