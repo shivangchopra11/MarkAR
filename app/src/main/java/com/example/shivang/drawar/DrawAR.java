@@ -5,6 +5,7 @@ import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.opengl.Matrix;
 import android.support.annotation.NonNull;
+import android.support.v4.content.ContextCompat;
 import android.support.v4.view.GestureDetectorCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -13,6 +14,7 @@ import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.WindowManager;
+import android.widget.ImageView;
 import android.widget.Toast;
 
 import com.example.shivang.drawar.Permissions.PermissionHelper;
@@ -32,6 +34,9 @@ import com.google.ar.core.exceptions.UnavailableApkTooOldException;
 import com.google.ar.core.exceptions.UnavailableArcoreNotInstalledException;
 import com.google.ar.core.exceptions.UnavailableSdkTooOldException;
 import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationException;
+import com.oguzdev.circularfloatingactionmenu.library.FloatingActionButton;
+import com.oguzdev.circularfloatingactionmenu.library.FloatingActionMenu;
+import com.oguzdev.circularfloatingactionmenu.library.SubActionButton;
 
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -86,8 +91,53 @@ public class DrawAR extends AppCompatActivity implements GLSurfaceView.Renderer,
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
         setContentView(R.layout.activity_draw_ar);
-
         getSupportActionBar().hide();
+
+
+
+        ImageView icon = new ImageView(this); // Create an icon
+        icon.setColorFilter(ContextCompat.getColor(this, R.color.green), android.graphics.PorterDuff.Mode.MULTIPLY);
+        icon.setImageDrawable(getDrawable(R.drawable.baseline_menu_white_24dp));
+
+        FloatingActionButton actionButton = new FloatingActionButton.Builder(this)
+                .setContentView(icon)
+                .build();
+        actionButton.setBackground(getDrawable(R.drawable.back));
+
+        SubActionButton.Builder itemBuilder = new SubActionButton.Builder(this);
+        itemBuilder.setBackgroundDrawable(getDrawable(R.drawable.back));
+        // repeat many times:
+        ImageView itemIcon1 = new ImageView(this);
+        itemIcon1.setColorFilter(ContextCompat.getColor(this, R.color.green), android.graphics.PorterDuff.Mode.MULTIPLY);
+        itemIcon1.setImageDrawable(getDrawable(R.drawable.baseline_color_lens_white_24dp));
+        SubActionButton button1 = itemBuilder.setContentView(itemIcon1).build();
+
+        ImageView itemIcon2 = new ImageView(this);
+        itemIcon2.setColorFilter(ContextCompat.getColor(this, R.color.green), android.graphics.PorterDuff.Mode.MULTIPLY);
+        itemIcon2.setImageDrawable(getDrawable(R.drawable.baseline_undo_white_24dp));
+        SubActionButton button2 = itemBuilder.setContentView(itemIcon2).build();
+
+        ImageView itemIcon3 = new ImageView(this);
+        itemIcon3.setColorFilter(ContextCompat.getColor(this, R.color.green), android.graphics.PorterDuff.Mode.MULTIPLY);
+        itemIcon3.setImageDrawable(getDrawable(R.drawable.baseline_delete_white_24dp));
+        SubActionButton button3 = itemBuilder.setContentView(itemIcon3).build();
+
+        ImageView itemIcon4 = new ImageView(this);
+        itemIcon4.setColorFilter(ContextCompat.getColor(this, R.color.green), android.graphics.PorterDuff.Mode.MULTIPLY);
+        itemIcon4.setImageDrawable(getDrawable(R.drawable.baseline_settings_white_24dp));
+        SubActionButton button4 = itemBuilder.setContentView(itemIcon4).build();
+
+
+        FloatingActionMenu actionMenu = new FloatingActionMenu.Builder(this)
+                .addSubActionView(button1)
+                .addSubActionView(button2)
+                .addSubActionView(button3)
+                .addSubActionView(button4)
+                .attachTo(actionButton)
+                .build();
+
+
+
 
 //        if (!PermissionHelper.hasCameraPermission(this)) {
 //            Log.v("TAG","AAYA");
