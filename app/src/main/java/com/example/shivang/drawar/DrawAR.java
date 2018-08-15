@@ -1,8 +1,11 @@
 package com.example.shivang.drawar;
 
 import android.app.AlertDialog;
+import android.app.Dialog;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
@@ -24,6 +27,7 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
+import android.widget.SeekBar;
 import android.widget.Toast;
 
 import com.example.shivang.drawar.Permissions.PermissionHelper;
@@ -48,8 +52,6 @@ import com.oguzdev.circularfloatingactionmenu.library.FloatingActionMenu;
 import com.oguzdev.circularfloatingactionmenu.library.SubActionButton;
 import com.pes.androidmaterialcolorpickerdialog.ColorPicker;
 import com.pes.androidmaterialcolorpickerdialog.ColorPickerCallback;
-import com.turkialkhateeb.materialcolorpicker.ColorChooserDialog;
-import com.turkialkhateeb.materialcolorpicker.ColorListener;
 
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -96,6 +98,10 @@ public class DrawAR extends AppCompatActivity implements GLSurfaceView.Renderer,
 
     private BiquadFilter biquadFilter;
 
+    private SeekBar mLineWidthBar;
+    private SeekBar mLineDistanceScaleBar;
+    private SeekBar mSmoothingBar;
+
 
 
     @Override
@@ -105,6 +111,8 @@ public class DrawAR extends AppCompatActivity implements GLSurfaceView.Renderer,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
         setContentView(R.layout.activity_draw_ar);
         getSupportActionBar().hide();
+
+        final SharedPreferences sharedPref = this.getPreferences(Context.MODE_PRIVATE);
 
 
 
@@ -206,6 +214,65 @@ public class DrawAR extends AppCompatActivity implements GLSurfaceView.Renderer,
         itemIcon4.setColorFilter(ContextCompat.getColor(this, R.color.green), android.graphics.PorterDuff.Mode.MULTIPLY);
         itemIcon4.setImageDrawable(getDrawable(R.drawable.baseline_settings_white_24dp));
         SubActionButton button4 = itemBuilder.setContentView(itemIcon4).build();
+        button4.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Dialog dialog = new Dialog(DrawAR.this);
+                dialog.setContentView(R.layout.dialog_settings);
+                dialog.show();
+
+                mLineDistanceScaleBar = dialog.findViewById(R.id.distanceScale);
+                mLineWidthBar = dialog.findViewById(R.id.lineWidth);
+                mSmoothingBar = dialog.findViewById(R.id.smoothingSeekBar);
+
+                mLineDistanceScaleBar.setProgress(sharedPref.getInt("mLineDistanceScale", 1));
+                mLineWidthBar.setProgress(sharedPref.getInt("mLineWidth", 10));
+                mSmoothingBar.setProgress(sharedPref.getInt("mSmoothing", 50));
+
+                mDistanceScale = LineUtils.map((float) mLineDistanceScaleBar.getProgress(), 0, 100, 1, 200, true);
+                mLineWidthMax = LineUtils.map((float) mLineWidthBar.getProgress(), 0f, 100f, 0.1f, 5f, true);
+                mLineSmoothing = LineUtils.map((float) mSmoothingBar.getProgress(), 0, 100, 0.01f, 0.2f, true);
+
+
+                SeekBar.OnSeekBarChangeListener seekBarChangeListener = new SeekBar.OnSeekBarChangeListener() {
+                    /**
+                     * Listen for seekbar changes, and update the settings
+                     */
+                    @Override
+                    public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                        SharedPreferences.Editor editor = sharedPref.edit();
+
+                        if (seekBar == mLineDistanceScaleBar) {
+                            editor.putInt("mLineDistanceScale", progress);
+                            mDistanceScale = LineUtils.map((float) progress, 0f, 100f, 1f, 200f, true);
+                        } else if (seekBar == mLineWidthBar) {
+                            editor.putInt("mLineWidth", progress);
+                            mLineWidthMax = LineUtils.map((float) progress, 0f, 100f, 0.1f, 5f, true);
+                        } else if (seekBar == mSmoothingBar) {
+                            editor.putInt("mSmoothing", progress);
+                            mLineSmoothing = LineUtils.map((float) progress, 0, 100, 0.01f, 0.2f, true);
+                        }
+                        mLineShaderRenderer.bNeedsUpdate.set(true);
+
+                        editor.apply();
+
+                    }
+
+                    @Override
+                    public void onStartTrackingTouch(SeekBar seekBar) {
+                    }
+
+                    @Override
+                    public void onStopTrackingTouch(SeekBar seekBar) {
+                    }
+                };
+
+                mLineDistanceScaleBar.setOnSeekBarChangeListener(seekBarChangeListener);
+                mLineWidthBar.setOnSeekBarChangeListener(seekBarChangeListener);
+                mSmoothingBar.setOnSeekBarChangeListener(seekBarChangeListener);
+
+            }
+        });
 
 
         FloatingActionMenu actionMenu = new FloatingActionMenu.Builder(this)
