@@ -21,6 +21,8 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.RelativeLayout;
 import android.widget.Toast;
 
 import com.example.shivang.drawar.Permissions.PermissionHelper;
@@ -105,10 +107,14 @@ public class DrawAR extends AppCompatActivity implements GLSurfaceView.Renderer,
         icon.setColorFilter(ContextCompat.getColor(this, R.color.green), android.graphics.PorterDuff.Mode.MULTIPLY);
         icon.setImageDrawable(getDrawable(R.drawable.baseline_menu_white_24dp));
 
+
         FloatingActionButton actionButton = new FloatingActionButton.Builder(this)
                 .setContentView(icon)
                 .build();
         actionButton.setBackground(getDrawable(R.drawable.back));
+
+
+
 
         SubActionButton.Builder itemBuilder = new SubActionButton.Builder(this);
         itemBuilder.setBackgroundDrawable(getDrawable(R.drawable.back));

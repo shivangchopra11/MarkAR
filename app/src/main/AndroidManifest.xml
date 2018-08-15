@@ -25,8 +25,9 @@
             android:name="com.google.ar.core"
             android:value="required" />
 
-        <activity android:name=".DrawAR" android:noHistory="true"></activity>
-        <activity android:name=".LoadingActivity">
+        <activity android:name=".DrawAR" android:screenOrientation="portrait"></activity>
+        <activity android:name=".LoadingActivity"
+            android:screenOrientation="portrait">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
