@@ -7,6 +7,7 @@ import android.graphics.Color;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.opengl.Matrix;
+import android.support.annotation.ColorInt;
 import android.support.annotation.NonNull;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.view.GestureDetectorCompat;
@@ -45,6 +46,10 @@ import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationExceptio
 import com.oguzdev.circularfloatingactionmenu.library.FloatingActionButton;
 import com.oguzdev.circularfloatingactionmenu.library.FloatingActionMenu;
 import com.oguzdev.circularfloatingactionmenu.library.SubActionButton;
+import com.pes.androidmaterialcolorpickerdialog.ColorPicker;
+import com.pes.androidmaterialcolorpickerdialog.ColorPickerCallback;
+import com.turkialkhateeb.materialcolorpicker.ColorChooserDialog;
+import com.turkialkhateeb.materialcolorpicker.ColorListener;
 
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -114,6 +119,7 @@ public class DrawAR extends AppCompatActivity implements GLSurfaceView.Renderer,
         actionButton.setBackground(getDrawable(R.drawable.back));
 
 
+        final ColorPicker cp = new ColorPicker(DrawAR.this, 255, 255, 255);
 
 
         SubActionButton.Builder itemBuilder = new SubActionButton.Builder(this);
@@ -123,6 +129,25 @@ public class DrawAR extends AppCompatActivity implements GLSurfaceView.Renderer,
         itemIcon1.setColorFilter(ContextCompat.getColor(this, R.color.green), android.graphics.PorterDuff.Mode.MULTIPLY);
         itemIcon1.setImageDrawable(getDrawable(R.drawable.baseline_color_lens_white_24dp));
         SubActionButton button1 = itemBuilder.setContentView(itemIcon1).build();
+        button1.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                /* Show color picker dialog */
+                cp.getWindow().setBackgroundDrawableResource(R.color.black);
+                cp.show();
+                cp.enableAutoClose(); // Enable auto-dismiss for the dialog
+
+                /* Set a new Listener called when user click "select" */
+                cp.setCallback(new ColorPickerCallback() {
+                    @Override
+                    public void onColorChosen(@ColorInt int color) {
+                        Vector3f curColor = new Vector3f(Color.red(color)/255f,Color.green(color)/255f,Color.blue(color)/255f);
+                        AppSettings.setColor(curColor);
+                        cp.dismiss();
+                    }
+                });
+            }
+        });
 
         ImageView itemIcon2 = new ImageView(this);
         itemIcon2.setColorFilter(ContextCompat.getColor(this, R.color.green), android.graphics.PorterDuff.Mode.MULTIPLY);

@@ -30,5 +30,7 @@ dependencies {
     implementation 'javax.vecmath:vecmath:1.5.2'
     implementation 'com.github.jorgecastilloprz:fillableloaders:1.03@aar'
     implementation 'com.oguzdev:CircularFloatingActionMenu:1.0.2'
+    implementation 'com.turki-alkhateeb:materialcolorpicker:1.0.7'
+    implementation 'com.pes.materialcolorpicker:library:1.2.4'
 
 }
